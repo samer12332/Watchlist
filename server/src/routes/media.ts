@@ -11,6 +11,9 @@ const router = Router();
 const DEFAULT_PAGE_SIZE = 24;
 const MIN_ALLOWED_RATING = 6.5;
 
+const sanitizeSyncedRating = (rating: number | null) => (rating !== null && rating < MIN_ALLOWED_RATING ? null : rating);
+
+
 type MediaStatus = 'planned' | 'watching' | 'suspended' | 'completed' | 'reviewed';
 
 type MediaPayloadLike = {
@@ -274,7 +277,7 @@ router.post(
         { force: true }
       );
 
-      mediaItem.rating = merged.rating;
+      mediaItem.rating = sanitizeSyncedRating(merged.rating);
       mediaItem.releaseYear = merged.releaseYear;
       mediaItem.posterUrl = merged.posterUrl;
       mediaItem.totalSeasons = merged.totalSeasons;
@@ -377,7 +380,7 @@ router.post(
       { force: true }
     );
 
-    mediaItem.rating = merged.rating;
+    mediaItem.rating = sanitizeSyncedRating(merged.rating);
     mediaItem.releaseYear = merged.releaseYear;
     mediaItem.posterUrl = merged.posterUrl;
     mediaItem.totalSeasons = merged.totalSeasons;
@@ -520,6 +523,7 @@ router.delete(
 );
 
 export default router;
+
 
 
 

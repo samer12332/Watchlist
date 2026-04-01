@@ -2,6 +2,9 @@ import { connectToDatabase } from '../lib/db';
 import { fetchExternalMetadata, hasExternalMetadataConfig, mergeExternalMetadata } from '../lib/external-metadata';
 import { MediaItemModel } from '../models/media-item';
 
+const MIN_ALLOWED_RATING = 6.5;
+const sanitizeSyncedRating = (rating: number | null) => (rating !== null && rating < MIN_ALLOWED_RATING ? null : rating);
+
 const run = async () => {
   if (!hasExternalMetadataConfig()) {
     throw new Error('Missing OMDB_API_KEY or TMDB_READ_ACCESS_TOKEN.');
@@ -9,7 +12,7 @@ const run = async () => {
 
   await connectToDatabase();
 
-  const mediaItems = (await MediaItemModel.find({})) as any[];
+  const mediaItems = (await MediaItemModel.find({}).lean()) as any[];
   let updated = 0;
   let matched = 0;
 
@@ -42,32 +45,41 @@ const run = async () => {
       { force: true }
     );
 
+    const nextRating = sanitizeSyncedRating(merged.rating);
+    const currentKeywords = Array.isArray(mediaItem.keywords) ? mediaItem.keywords : [];
+
     const changed =
-      merged.rating !== mediaItem.rating ||
+      nextRating !== mediaItem.rating ||
       merged.releaseYear !== mediaItem.releaseYear ||
       merged.posterUrl !== mediaItem.posterUrl ||
       merged.totalSeasons !== mediaItem.totalSeasons ||
       merged.totalEpisodes !== mediaItem.totalEpisodes ||
       merged.ageCertification !== mediaItem.ageCertification ||
       merged.isAdult !== Boolean(mediaItem.isAdult) ||
-      JSON.stringify(merged.keywords) !== JSON.stringify(Array.isArray(mediaItem.keywords) ? mediaItem.keywords : []) ||
+      JSON.stringify(merged.keywords) !== JSON.stringify(currentKeywords) ||
       merged.overview !== mediaItem.overview;
 
     if (!changed) {
       continue;
     }
 
-    mediaItem.rating = merged.rating;
-    mediaItem.releaseYear = merged.releaseYear;
-    mediaItem.posterUrl = merged.posterUrl;
-    mediaItem.totalSeasons = merged.totalSeasons;
-    mediaItem.totalEpisodes = merged.totalEpisodes;
-    mediaItem.ageCertification = merged.ageCertification;
-    mediaItem.isAdult = merged.isAdult;
-    mediaItem.keywords = merged.keywords;
-    mediaItem.overview = merged.overview;
+    await MediaItemModel.updateOne(
+      { _id: mediaItem._id },
+      {
+        $set: {
+          rating: nextRating,
+          releaseYear: merged.releaseYear,
+          posterUrl: merged.posterUrl,
+          totalSeasons: merged.totalSeasons,
+          totalEpisodes: merged.totalEpisodes,
+          ageCertification: merged.ageCertification,
+          isAdult: merged.isAdult,
+          keywords: merged.keywords,
+          overview: merged.overview,
+        },
+      }
+    );
 
-    await mediaItem.save();
     updated += 1;
   }
 
