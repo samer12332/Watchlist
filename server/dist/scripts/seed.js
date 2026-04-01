@@ -238,7 +238,7 @@ const run = async () => {
     const summary = summarize(consolidatedMedia);
     console.log(`Seeded ${summary.totalCategories} categories, ${summary.movies} movies, and ${summary.series} series.`);
     console.log(`Watched: ${summary.watched}`);
-    console.log(`Reviewed but not watched: ${summary.reviewedButNotWatched}`);
+    console.log(`Reviewed: ${summary.reviewedButNotWatched}`);
     console.log(`Selected once: ${summary.selectedOnce}`);
     console.log(`Selected twice: ${summary.selectedTwice}`);
     console.log(`Waiting list: ${summary.waitingList}`);

@@ -11,6 +11,23 @@ const router = (0, express_1.Router)();
 const DEFAULT_PAGE_SIZE = 24;
 const MIN_ALLOWED_RATING = 6.5;
 const pickDefined = (value, fallback) => (value !== undefined ? value : fallback);
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const ensureUniqueMediaTitleForType = async (title, type, excludeId) => {
+    const filters = {
+        type,
+        title: {
+            $regex: `^${escapeRegex(title.trim())}$`,
+            $options: 'i',
+        },
+    };
+    if (excludeId) {
+        filters._id = { $ne: new media_item_1.MediaObjectId(excludeId) };
+    }
+    const existing = await media_item_1.MediaItemModel.findOne(filters).select('_id title type');
+    if (existing) {
+        throw new http_error_1.HttpError(409, `A ${type} named "${title.trim()}" already exists.`);
+    }
+};
 const ensureCategoriesExist = async (categoryIds) => {
     const uniqueIds = [...new Set(categoryIds)];
     if (uniqueIds.length === 0) {
@@ -67,10 +84,7 @@ const buildStatusFilters = (status) => {
     }
     if (status === 'reviewed') {
         return {
-            $or: [
-                { status: 'reviewed' },
-                { status: 'completed', liked: false },
-            ],
+            $or: [{ status: 'reviewed' }, { status: 'completed', liked: false }],
         };
     }
     return { status };
@@ -195,6 +209,7 @@ router.get('/:id', (0, async_handler_1.asyncHandler)(async (request, response) =
 router.post('/', (0, async_handler_1.asyncHandler)(async (request, response) => {
     const payload = media_1.mediaPayloadSchema.parse(request.body);
     const categoryIds = await ensureCategoriesExist(payload.categoryIds);
+    await ensureUniqueMediaTitleForType(payload.title, payload.type);
     const mediaDocumentPayload = await buildMediaDocumentPayload({
         ...payload,
         categoryIds,
@@ -250,13 +265,15 @@ router.put('/:id', (0, async_handler_1.asyncHandler)(async (request, response) =
         throw new http_error_1.HttpError(404, 'Media item not found.');
     }
     const partialPayload = media_1.mediaUpdatePayloadSchema.parse(request.body);
+    const nextStatus = pickDefined(partialPayload.status, getNormalizedStatus(mediaItem.status, mediaItem.liked));
+    const nextSelectionCount = nextStatus === 'planned' ? pickDefined(partialPayload.selectionCount, mediaItem.selectionCount ?? 0) : 0;
     const mergedPayload = media_1.mediaPayloadSchema.parse({
         title: pickDefined(partialPayload.title, mediaItem.title),
         type: pickDefined(partialPayload.type, mediaItem.type),
-        status: pickDefined(partialPayload.status, getNormalizedStatus(mediaItem.status, mediaItem.liked)),
+        status: nextStatus,
         rating: pickDefined(partialPayload.rating, mediaItem.rating),
         liked: pickDefined(partialPayload.liked, normalizeLikedForStatus(getNormalizedStatus(mediaItem.status, mediaItem.liked), mediaItem.liked)),
-        selectionCount: pickDefined(partialPayload.selectionCount, mediaItem.selectionCount ?? 0),
+        selectionCount: nextSelectionCount,
         notes: pickDefined(partialPayload.notes, mediaItem.notes),
         releaseYear: pickDefined(partialPayload.releaseYear, mediaItem.releaseYear),
         posterUrl: pickDefined(partialPayload.posterUrl, mediaItem.posterUrl),
@@ -267,6 +284,7 @@ router.put('/:id', (0, async_handler_1.asyncHandler)(async (request, response) =
         categoryIds: pickDefined(partialPayload.categoryIds, mediaItem.categories.map((categoryId) => categoryId.toString())),
     });
     const categoryIds = await ensureCategoriesExist(mergedPayload.categoryIds);
+    await ensureUniqueMediaTitleForType(mergedPayload.title, mergedPayload.type, String(request.params.id));
     const mediaDocumentPayload = await buildMediaDocumentPayload({
         ...mergedPayload,
         categoryIds,
@@ -311,9 +329,7 @@ router.post('/:id/select', (0, async_handler_1.asyncHandler)(async (request, res
     await mediaItem.populate('categories');
     response.json({
         data: normalizeMediaDocument(mediaItem.toJSON()),
-        message: mediaItem.status === 'reviewed'
-            ? 'Item moved to reviewed after the third selection.'
-            : 'Item selection count updated.',
+        message: mediaItem.status === 'reviewed' ? 'Item moved to reviewed after the third selection.' : 'Item selection count updated.',
     });
 }));
 router.delete('/:id', (0, async_handler_1.asyncHandler)(async (request, response) => {

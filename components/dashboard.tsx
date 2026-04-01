@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Dice6, Plus, Sparkles } from 'lucide-react';
+import { Clapperboard, Dice6, Plus, Sparkles, Tv } from 'lucide-react';
 
 import AddMediaModal from '@/components/add-media-modal';
 import MediaCard from '@/components/media-card';
@@ -28,6 +28,7 @@ export default function Dashboard({ refreshToken, onDataChanged }: DashboardProp
   const [randomCategory, setRandomCategory] = useState<Category | null>(null);
   const [randomMedia, setRandomMedia] = useState<MediaItem | null>(null);
   const [randomError, setRandomError] = useState<string | null>(null);
+  const [lastRandomMediaType, setLastRandomMediaType] = useState<MediaType | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -101,6 +102,7 @@ export default function Dashboard({ refreshToken, onDataChanged }: DashboardProp
   const handleRandomCategory = async () => {
     setRandomError(null);
     setRandomMedia(null);
+    setLastRandomMediaType(null);
 
     try {
       const category = await watchlistApi.getRandomCategory();
@@ -113,17 +115,18 @@ export default function Dashboard({ refreshToken, onDataChanged }: DashboardProp
     }
   };
 
-  const handleRandomMedia = async () => {
+  const handleRandomMedia = async (type: MediaType) => {
     setRandomError(null);
     setRandomCategory(null);
+    setLastRandomMediaType(type);
 
     try {
-      const mediaItem = await watchlistApi.getRandomMediaItem();
+      const mediaItem = await watchlistApi.getRandomMediaItem({ type, status: 'planned' });
       setRandomMedia(mediaItem);
       setShowRandomModal(true);
     } catch (randomLoadError) {
       setRandomMedia(null);
-      setRandomError(randomLoadError instanceof Error ? randomLoadError.message : 'Unable to pick media.');
+      setRandomError(randomLoadError instanceof Error ? randomLoadError.message : `Unable to pick a planned ${type}.`);
       setShowRandomModal(true);
     }
   };
@@ -145,7 +148,7 @@ export default function Dashboard({ refreshToken, onDataChanged }: DashboardProp
         <StatCard label="Planned" value={summary.planned} highlight />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Button onClick={() => handleOpenAddModal('movie')} className="h-auto flex-col gap-2 bg-indigo-600 py-5 hover:bg-indigo-700">
           <Plus className="h-5 w-5" />
           <span className="text-sm font-medium">Add Movie</span>
@@ -158,9 +161,13 @@ export default function Dashboard({ refreshToken, onDataChanged }: DashboardProp
           <Sparkles className="h-5 w-5" />
           <span className="text-sm font-medium">Random Category</span>
         </Button>
-        <Button onClick={handleRandomMedia} variant="outline" className="h-auto flex-col gap-2 py-5">
-          <Dice6 className="h-5 w-5" />
-          <span className="text-sm font-medium">Pick Planned</span>
+        <Button onClick={() => handleRandomMedia('movie')} variant="outline" className="h-auto flex-col gap-2 py-5">
+          <Clapperboard className="h-5 w-5" />
+          <span className="text-sm font-medium">Random Movie</span>
+        </Button>
+        <Button onClick={() => handleRandomMedia('series')} variant="outline" className="h-auto flex-col gap-2 py-5">
+          <Tv className="h-5 w-5" />
+          <span className="text-sm font-medium">Random Series</span>
         </Button>
       </div>
 
@@ -238,7 +245,7 @@ export default function Dashboard({ refreshToken, onDataChanged }: DashboardProp
         media={randomMedia}
         relatedItems={relatedCategoryItems}
         error={randomError}
-        onRepick={randomMedia ? handleRandomMedia : randomCategory ? handleRandomCategory : undefined}
+        onRepick={randomMedia && lastRandomMediaType ? () => handleRandomMedia(lastRandomMediaType) : randomCategory ? handleRandomCategory : undefined}
       />
     </div>
   );

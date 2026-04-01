@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Calendar, Edit2, Star, Trash2 } from 'lucide-react';
 
 import AddMediaModal from '@/components/add-media-modal';
+import QuickStatusSelect from '@/components/quick-status-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -104,6 +105,11 @@ export default function MediaDetailsModal({
                   <Badge className={statusColors[media.status]}>{statusLabels[media.status]}</Badge>
                   <Badge variant="outline">{media.type === 'movie' ? 'Film' : 'Series'}</Badge>
                   {media.status === 'reviewed' && <Badge variant="secondary" className="text-rose-200">Reviewed and not liked</Badge>}
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Quick Status</p>
+                  <QuickStatusSelect media={media} onChanged={onChanged} />
                 </div>
 
                 {media.releaseYear && (

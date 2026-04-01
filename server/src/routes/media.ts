@@ -1,4 +1,4 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 
 import { asyncHandler } from '../lib/async-handler';
 import { fetchExternalMetadata, hasExternalMetadataConfig, mergeExternalMetadata } from '../lib/external-metadata';
@@ -31,6 +31,27 @@ type MediaPayloadLike = {
 };
 
 const pickDefined = <T>(value: T | undefined, fallback: T) => (value !== undefined ? value : fallback);
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const ensureUniqueMediaTitleForType = async (title: string, type: 'movie' | 'series', excludeId?: string) => {
+  const filters: Record<string, unknown> = {
+    type,
+    title: {
+      $regex: `^${escapeRegex(title.trim())}$`,
+      $options: 'i',
+    },
+  };
+
+  if (excludeId) {
+    filters._id = { $ne: new MediaObjectId(excludeId) };
+  }
+
+  const existing = await MediaItemModel.findOne(filters).select('_id title type');
+
+  if (existing) {
+    throw new HttpError(409, `A ${type} named "${title.trim()}" already exists.`);
+  }
+};
 
 const ensureCategoriesExist = async (categoryIds: string[]) => {
   const uniqueIds = [...new Set(categoryIds)];
@@ -104,10 +125,7 @@ const buildStatusFilters = (status?: MediaStatus) => {
 
   if (status === 'reviewed') {
     return {
-      $or: [
-        { status: 'reviewed' },
-        { status: 'completed', liked: false },
-      ],
+      $or: [{ status: 'reviewed' }, { status: 'completed', liked: false }],
     };
   }
 
@@ -279,6 +297,8 @@ router.post(
   asyncHandler(async (request, response) => {
     const payload = mediaPayloadSchema.parse(request.body);
     const categoryIds = await ensureCategoriesExist(payload.categoryIds);
+    await ensureUniqueMediaTitleForType(payload.title, payload.type);
+
     const mediaDocumentPayload = await buildMediaDocumentPayload({
       ...payload,
       categoryIds,
@@ -359,13 +379,19 @@ router.put(
     }
 
     const partialPayload = mediaUpdatePayloadSchema.parse(request.body);
+    const nextStatus = pickDefined(partialPayload.status, getNormalizedStatus(mediaItem.status, mediaItem.liked));
+    const nextSelectionCount = nextStatus === 'planned' ? pickDefined(partialPayload.selectionCount, mediaItem.selectionCount ?? 0) : 0;
+
     const mergedPayload = mediaPayloadSchema.parse({
       title: pickDefined(partialPayload.title, mediaItem.title),
       type: pickDefined(partialPayload.type, mediaItem.type),
-      status: pickDefined(partialPayload.status, getNormalizedStatus(mediaItem.status, mediaItem.liked)),
+      status: nextStatus,
       rating: pickDefined(partialPayload.rating, mediaItem.rating),
-      liked: pickDefined(partialPayload.liked, normalizeLikedForStatus(getNormalizedStatus(mediaItem.status, mediaItem.liked), mediaItem.liked)),
-      selectionCount: pickDefined(partialPayload.selectionCount, mediaItem.selectionCount ?? 0),
+      liked: pickDefined(
+        partialPayload.liked,
+        normalizeLikedForStatus(getNormalizedStatus(mediaItem.status, mediaItem.liked), mediaItem.liked)
+      ),
+      selectionCount: nextSelectionCount,
       notes: pickDefined(partialPayload.notes, mediaItem.notes),
       releaseYear: pickDefined(partialPayload.releaseYear, mediaItem.releaseYear),
       posterUrl: pickDefined(partialPayload.posterUrl, mediaItem.posterUrl),
@@ -380,6 +406,8 @@ router.put(
     });
 
     const categoryIds = await ensureCategoriesExist(mergedPayload.categoryIds);
+    await ensureUniqueMediaTitleForType(mergedPayload.title, mergedPayload.type, String(request.params.id));
+
     const mediaDocumentPayload = await buildMediaDocumentPayload({
       ...mergedPayload,
       categoryIds,
@@ -437,10 +465,7 @@ router.post(
 
     response.json({
       data: normalizeMediaDocument(mediaItem.toJSON()),
-      message:
-        mediaItem.status === 'reviewed'
-          ? 'Item moved to reviewed after the third selection.'
-          : 'Item selection count updated.',
+      message: mediaItem.status === 'reviewed' ? 'Item moved to reviewed after the third selection.' : 'Item selection count updated.',
     });
   })
 );

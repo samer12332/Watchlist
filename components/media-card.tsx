@@ -4,6 +4,7 @@ import { useState, type MouseEvent } from 'react';
 import { Bookmark, Play, Star, Trash2 } from 'lucide-react';
 
 import MediaDetailsModal from '@/components/media-details-modal';
+import QuickStatusSelect from '@/components/quick-status-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -88,6 +89,8 @@ export default function MediaCard({ media, categories, onChanged }: MediaCardPro
             <h3 className="line-clamp-2 text-sm font-semibold text-foreground">{media.title}</h3>
             {media.releaseYear && <p className="mt-1 text-[11px] text-muted-foreground">{media.releaseYear}</p>}
           </div>
+
+          <QuickStatusSelect media={media} onChanged={onChanged} compact />
 
           {media.rating !== null && (
             <div className="flex items-center gap-1.5">
