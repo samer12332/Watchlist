@@ -31,6 +31,10 @@ export interface MediaItem {
   status: MediaStatus;
   rating: number | null;
   liked: boolean | null;
+  ageCertification: string | null;
+  isAdult: boolean;
+  keywords: string[];
+  overview: string | null;
   selectionCount: number;
   notes: string | null;
   releaseYear: number | null;
@@ -62,6 +66,10 @@ export interface MediaPayload {
   status: MediaStatus;
   rating?: number | null;
   liked?: boolean | null;
+  ageCertification?: string | null;
+  isAdult?: boolean;
+  keywords?: string[];
+  overview?: string | null;
   selectionCount?: number;
   notes?: string | null;
   releaseYear?: number | null;

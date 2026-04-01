@@ -33,6 +33,10 @@ const run = async () => {
         posterUrl: mediaItem.posterUrl as string | null,
         totalSeasons: mediaItem.totalSeasons as number | null,
         totalEpisodes: mediaItem.totalEpisodes as number | null,
+        ageCertification: mediaItem.ageCertification as string | null,
+        isAdult: Boolean(mediaItem.isAdult),
+        keywords: Array.isArray(mediaItem.keywords) ? (mediaItem.keywords as string[]) : [],
+        overview: mediaItem.overview as string | null,
       },
       external,
       { force: true }
@@ -43,7 +47,11 @@ const run = async () => {
       merged.releaseYear !== mediaItem.releaseYear ||
       merged.posterUrl !== mediaItem.posterUrl ||
       merged.totalSeasons !== mediaItem.totalSeasons ||
-      merged.totalEpisodes !== mediaItem.totalEpisodes;
+      merged.totalEpisodes !== mediaItem.totalEpisodes ||
+      merged.ageCertification !== mediaItem.ageCertification ||
+      merged.isAdult !== Boolean(mediaItem.isAdult) ||
+      JSON.stringify(merged.keywords) !== JSON.stringify(Array.isArray(mediaItem.keywords) ? mediaItem.keywords : []) ||
+      merged.overview !== mediaItem.overview;
 
     if (!changed) {
       continue;
@@ -54,6 +62,10 @@ const run = async () => {
     mediaItem.posterUrl = merged.posterUrl;
     mediaItem.totalSeasons = merged.totalSeasons;
     mediaItem.totalEpisodes = merged.totalEpisodes;
+    mediaItem.ageCertification = merged.ageCertification;
+    mediaItem.isAdult = merged.isAdult;
+    mediaItem.keywords = merged.keywords;
+    mediaItem.overview = merged.overview;
 
     await mediaItem.save();
     updated += 1;

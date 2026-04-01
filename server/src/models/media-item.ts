@@ -27,6 +27,22 @@ const mediaItemSchema = new Schema(
       type: Boolean,
       default: null,
     },
+    ageCertification: {
+      type: String,
+      default: null,
+    },
+    isAdult: {
+      type: Boolean,
+      default: false,
+    },
+    keywords: {
+      type: [String],
+      default: [],
+    },
+    overview: {
+      type: String,
+      default: null,
+    },
     selectionCount: {
       type: Number,
       default: 0,
@@ -86,3 +102,4 @@ mediaItemSchema.path('currentEpisode').validate((value: number | null) => value 
 
 export const MediaItemModel = model('MediaItem', mediaItemSchema);
 export const MediaObjectId = Types.ObjectId;
+

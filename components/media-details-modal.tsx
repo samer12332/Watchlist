@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Calendar, Edit2, Star, Trash2 } from 'lucide-react';
 
 import AddMediaModal from '@/components/add-media-modal';
@@ -49,6 +49,10 @@ export default function MediaDetailsModal({
   const [selectionError, setSelectionError] = useState<string | null>(null);
 
   const currentSelectionCount = media.selectionCount ?? 0;
+  const highlightedKeywords = useMemo(
+    () => media.keywords.filter((keyword) => /nudity|sex|sexual|violence|gore|drug|language/i.test(keyword)).slice(0, 6),
+    [media.keywords]
+  );
 
   const handleDelete = async () => {
     const confirmed = window.confirm(`Delete "${media.title}"?`);
@@ -137,6 +141,21 @@ export default function MediaDetailsModal({
                   </div>
                 )}
 
+                {(media.ageCertification || media.isAdult || highlightedKeywords.length > 0) && (
+                  <div className="space-y-3 rounded-xl border border-border bg-secondary/60 p-4">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Content Profile</p>
+                    <div className="flex flex-wrap gap-2">
+                      {media.ageCertification && <Badge variant="secondary">Rated {media.ageCertification}</Badge>}
+                      {media.isAdult && <Badge className="bg-rose-600 text-white hover:bg-rose-600">Adult Content</Badge>}
+                      {highlightedKeywords.map((keyword) => (
+                        <Badge key={keyword} variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-100">
+                          {keyword}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {media.status === 'planned' && (
                   <div className="space-y-3 rounded-lg border border-border bg-secondary p-4">
                     <div className="flex items-center justify-between">
@@ -195,6 +214,13 @@ export default function MediaDetailsModal({
                 )}
               </div>
             </div>
+
+            {media.overview && (
+              <div className="rounded-xl border border-border bg-secondary/70 p-4">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Overview</p>
+                <p className="text-sm leading-relaxed text-foreground/90">{media.overview}</p>
+              </div>
+            )}
 
             {media.notes && (
               <div className="rounded-lg bg-secondary p-4">

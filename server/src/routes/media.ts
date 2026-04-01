@@ -19,6 +19,10 @@ type MediaPayloadLike = {
   status: MediaStatus;
   rating: number | null;
   liked: boolean | null;
+  ageCertification?: string | null;
+  isAdult?: boolean;
+  keywords?: string[];
+  overview?: string | null;
   selectionCount?: number;
   notes?: string | null;
   releaseYear: number | null;
@@ -108,6 +112,10 @@ const normalizeMediaDocument = <T extends Record<string, any>>(mediaItem: T) => 
     ...mediaItem,
     status: normalizedStatus,
     liked: normalizeLikedForStatus(normalizedStatus, mediaItem.liked ?? null),
+    ageCertification: mediaItem.ageCertification ?? null,
+    isAdult: Boolean(mediaItem.isAdult),
+    keywords: Array.isArray(mediaItem.keywords) ? mediaItem.keywords : [],
+    overview: mediaItem.overview ?? null,
   };
 };
 
@@ -147,6 +155,10 @@ const buildMediaDocumentPayload = async <T extends MediaPayloadLike>(payload: T,
       ...payload,
       status: normalizedStatus,
       liked: normalizedLiked,
+      ageCertification: payload.ageCertification ?? null,
+      isAdult: payload.isAdult ?? false,
+      keywords: payload.keywords ?? [],
+      overview: payload.overview ?? null,
     },
     external,
     {
@@ -253,6 +265,10 @@ router.post(
           posterUrl: mediaItem.posterUrl as string | null,
           totalSeasons: mediaItem.totalSeasons as number | null,
           totalEpisodes: mediaItem.totalEpisodes as number | null,
+          ageCertification: mediaItem.ageCertification as string | null,
+          isAdult: Boolean(mediaItem.isAdult),
+          keywords: Array.isArray(mediaItem.keywords) ? (mediaItem.keywords as string[]) : [],
+          overview: mediaItem.overview as string | null,
         },
         external,
         { force: true }
@@ -263,6 +279,10 @@ router.post(
       mediaItem.posterUrl = merged.posterUrl;
       mediaItem.totalSeasons = merged.totalSeasons;
       mediaItem.totalEpisodes = merged.totalEpisodes;
+      mediaItem.ageCertification = merged.ageCertification;
+      mediaItem.isAdult = merged.isAdult;
+      mediaItem.keywords = merged.keywords;
+      mediaItem.overview = merged.overview;
       await mediaItem.save();
       updated += 1;
     }
@@ -348,6 +368,10 @@ router.post(
         posterUrl: mediaItem.posterUrl as string | null,
         totalSeasons: mediaItem.totalSeasons as number | null,
         totalEpisodes: mediaItem.totalEpisodes as number | null,
+        ageCertification: mediaItem.ageCertification as string | null,
+        isAdult: Boolean(mediaItem.isAdult),
+        keywords: Array.isArray(mediaItem.keywords) ? (mediaItem.keywords as string[]) : [],
+        overview: mediaItem.overview as string | null,
       },
       external,
       { force: true }
@@ -358,6 +382,10 @@ router.post(
     mediaItem.posterUrl = merged.posterUrl;
     mediaItem.totalSeasons = merged.totalSeasons;
     mediaItem.totalEpisodes = merged.totalEpisodes;
+    mediaItem.ageCertification = merged.ageCertification;
+    mediaItem.isAdult = merged.isAdult;
+    mediaItem.keywords = merged.keywords;
+    mediaItem.overview = merged.overview;
 
     await mediaItem.save();
     await mediaItem.populate('categories');
@@ -418,6 +446,10 @@ router.put(
     mediaItem.status = mediaDocumentPayload.status;
     mediaItem.rating = mediaDocumentPayload.rating;
     mediaItem.liked = mediaDocumentPayload.liked;
+    mediaItem.ageCertification = mediaDocumentPayload.ageCertification;
+    mediaItem.isAdult = mediaDocumentPayload.isAdult;
+    mediaItem.keywords = mediaDocumentPayload.keywords;
+    mediaItem.overview = mediaDocumentPayload.overview;
     mediaItem.selectionCount = mediaDocumentPayload.selectionCount ?? 0;
     mediaItem.notes = mediaDocumentPayload.notes;
     mediaItem.releaseYear = mediaDocumentPayload.releaseYear;
@@ -488,3 +520,7 @@ router.delete(
 );
 
 export default router;
+
+
+
+
