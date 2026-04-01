@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useDeferredValue, useEffect, useState } from 'react';
-import { Filter, Grid3x3, List, Plus, Search } from 'lucide-react';
+import { Check, ChevronsUpDown, Filter, Grid3x3, List, Plus, Search } from 'lucide-react';
 
 import AddMediaModal from '@/components/add-media-modal';
 import MediaCard from '@/components/media-card';
@@ -9,10 +9,13 @@ import MediaDetailsModal from '@/components/media-details-modal';
 import PaginationControls from '@/components/pagination-controls';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { watchlistApi } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import type { Category, MediaItem, MediaStatus, MediaType } from '@/shared/watchlist';
 
 interface MediaLibraryProps {
@@ -20,7 +23,7 @@ interface MediaLibraryProps {
   onDataChanged: () => void;
 }
 
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 10;
 const statusColors = {
   planned: 'bg-slate-600',
   watching: 'bg-blue-600',
@@ -48,6 +51,7 @@ export default function MediaLibrary({ refreshToken, onDataChanged }: MediaLibra
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'title' | 'rating-asc' | 'rating-desc' | 'newest' | 'oldest'>('newest');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -81,6 +85,11 @@ export default function MediaLibrary({ refreshToken, onDataChanged }: MediaLibra
   useEffect(() => {
     setCurrentPage(1);
   }, [typeFilter, statusFilter, categoryFilter, sortBy, deferredSearch]);
+
+  const selectedCategoryLabel =
+    categoryFilter === 'all'
+      ? 'All Categories'
+      : categories.find((category) => category.id === categoryFilter)?.name ?? 'Category';
 
   useEffect(() => {
     let active = true;
@@ -183,19 +192,53 @@ export default function MediaLibrary({ refreshToken, onDataChanged }: MediaLibra
           </SelectContent>
         </Select>
 
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="border-border bg-secondary">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent className="border-border bg-card">
-            <SelectItem value="all">All Categories</SelectItem>
-            {categories.map((category) => (
-              <SelectItem key={category.id} value={category.id}>
-                {category.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Popover open={categoryPickerOpen} onOpenChange={setCategoryPickerOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              role="combobox"
+              aria-expanded={categoryPickerOpen}
+              className="w-full justify-between border-border bg-secondary text-foreground hover:bg-secondary"
+            >
+              <span className="truncate">{selectedCategoryLabel}</span>
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[var(--radix-popover-trigger-width)] border-border bg-card p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Search category..." />
+              <CommandList>
+                <CommandEmpty>No category found.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    value="all categories"
+                    onSelect={() => {
+                      setCategoryFilter('all');
+                      setCategoryPickerOpen(false);
+                    }}
+                  >
+                    <Check className={cn('mr-2 h-4 w-4', categoryFilter === 'all' ? 'opacity-100' : 'opacity-0')} />
+                    All Categories
+                  </CommandItem>
+                  {categories.map((category) => (
+                    <CommandItem
+                      key={category.id}
+                      value={`${category.name} ${category.group?.name ?? ''}`}
+                      onSelect={() => {
+                        setCategoryFilter(category.id);
+                        setCategoryPickerOpen(false);
+                      }}
+                    >
+                      <Check className={cn('mr-2 h-4 w-4', categoryFilter === category.id ? 'opacity-100' : 'opacity-0')} />
+                      <span className="truncate">{category.name}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
 
         <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
           <SelectTrigger className="border-border bg-secondary">

@@ -88,9 +88,9 @@ export default function Dashboard({ refreshToken, onDataChanged }: DashboardProp
     };
   }, [mediaItems]);
 
-  const recentItems = useMemo(() => mediaItems.slice(0, 8), [mediaItems]);
+  const recentItems = useMemo(() => mediaItems.slice(0, 4), [mediaItems]);
   const topRatedItems = useMemo(
-    () => [...mediaItems].filter((item) => item.rating !== null).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 8),
+    () => [...mediaItems].filter((item) => item.rating !== null).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 4),
     [mediaItems]
   );
 
@@ -180,7 +180,7 @@ export default function Dashboard({ refreshToken, onDataChanged }: DashboardProp
           <section>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-foreground">Recently Added</h2>
-              <Badge variant="secondary">Last 8</Badge>
+              <Badge variant="secondary">Last 4</Badge>
             </div>
             {recentItems.length === 0 ? (
               <Card className="p-10 text-center text-muted-foreground">No media added yet.</Card>
@@ -196,7 +196,7 @@ export default function Dashboard({ refreshToken, onDataChanged }: DashboardProp
           <section>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-foreground">Top Rated</h2>
-              <Badge variant="secondary">Highest Scores</Badge>
+              <Badge variant="secondary">Top 4</Badge>
             </div>
             {topRatedItems.length === 0 ? (
               <Card className="p-10 text-center text-muted-foreground">Completed and reviewed items with ratings will show up here.</Card>
