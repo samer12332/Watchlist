@@ -18,6 +18,7 @@ const mediaPayloadBaseSchema = z.object({
   status: z.enum(['planned', 'watching', 'suspended', 'completed', 'reviewed']),
   rating: nullableRating,
   liked: nullableBoolean,
+  isBookmarked: z.boolean().optional().default(false),
   selectionCount: selectionCountSchema,
   notes: nullableString,
   releaseYear: z

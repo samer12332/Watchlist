@@ -22,6 +22,7 @@ type MediaPayloadLike = {
   status: MediaStatus;
   rating: number | null;
   liked: boolean | null;
+  isBookmarked?: boolean;
   ageCertification?: string | null;
   isAdult?: boolean;
   keywords?: string[];
@@ -115,6 +116,7 @@ const normalizeMediaDocument = <T extends Record<string, any>>(mediaItem: T) => 
     ...mediaItem,
     status: normalizedStatus,
     liked: normalizeLikedForStatus(normalizedStatus, mediaItem.liked ?? null),
+    isBookmarked: Boolean(mediaItem.isBookmarked),
     ageCertification: mediaItem.ageCertification ?? null,
     isAdult: Boolean(mediaItem.isAdult),
     keywords: Array.isArray(mediaItem.keywords) ? mediaItem.keywords : [],
@@ -158,6 +160,7 @@ const buildMediaDocumentPayload = async <T extends MediaPayloadLike>(payload: T,
       ...payload,
       status: normalizedStatus,
       liked: normalizedLiked,
+      isBookmarked: payload.isBookmarked ?? false,
       ageCertification: payload.ageCertification ?? null,
       isAdult: payload.isAdult ?? false,
       keywords: payload.keywords ?? [],
@@ -422,6 +425,7 @@ router.put(
         partialPayload.liked,
         normalizeLikedForStatus(getNormalizedStatus(mediaItem.status, mediaItem.liked), mediaItem.liked)
       ),
+      isBookmarked: pickDefined(partialPayload.isBookmarked, Boolean(mediaItem.isBookmarked)),
       selectionCount: nextSelectionCount,
       notes: pickDefined(partialPayload.notes, mediaItem.notes),
       releaseYear: pickDefined(partialPayload.releaseYear, mediaItem.releaseYear),
@@ -449,6 +453,7 @@ router.put(
     mediaItem.status = mediaDocumentPayload.status;
     mediaItem.rating = mediaDocumentPayload.rating;
     mediaItem.liked = mediaDocumentPayload.liked;
+    mediaItem.isBookmarked = mediaDocumentPayload.isBookmarked ?? false;
     mediaItem.ageCertification = mediaDocumentPayload.ageCertification;
     mediaItem.isAdult = mediaDocumentPayload.isAdult;
     mediaItem.keywords = mediaDocumentPayload.keywords;
@@ -523,6 +528,7 @@ router.delete(
 );
 
 export default router;
+
 
 
 

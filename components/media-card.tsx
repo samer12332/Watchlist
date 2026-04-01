@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useState, type MouseEvent } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import { Bookmark, Play, Star, Trash2 } from 'lucide-react';
 
 import MediaDetailsModal from '@/components/media-details-modal';
@@ -36,9 +36,16 @@ const statusLabels = {
 export default function MediaCard({ media, categories, onChanged }: MediaCardProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
+  const [isBookmarking, setIsBookmarking] = useState(false);
   const [selectionError, setSelectionError] = useState<string | null>(null);
+  const [bookmarkError, setBookmarkError] = useState<string | null>(null);
+  const [isBookmarked, setIsBookmarked] = useState(media.isBookmarked);
 
   const currentSelectionCount = media.selectionCount ?? 0;
+
+  useEffect(() => {
+    setIsBookmarked(media.isBookmarked);
+  }, [media.isBookmarked]);
 
   const handleSelectToWatch = async (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
@@ -52,6 +59,23 @@ export default function MediaCard({ media, categories, onChanged }: MediaCardPro
       setSelectionError(error instanceof Error ? error.message : 'Unable to update the selection count.');
     } finally {
       setIsSelecting(false);
+    }
+  };
+
+  const handleToggleBookmark = async (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setBookmarkError(null);
+    setIsBookmarking(true);
+
+    try {
+      const nextBookmarked = !isBookmarked;
+      setIsBookmarked(nextBookmarked);
+      await watchlistApi.updateMediaItem(media.id, { isBookmarked: nextBookmarked });
+    } catch (error) {
+      setIsBookmarked((previous) => !previous);
+      setBookmarkError(error instanceof Error ? error.message : 'Unable to update bookmark.');
+    } finally {
+      setIsBookmarking(false);
     }
   };
 
@@ -78,11 +102,14 @@ export default function MediaCard({ media, categories, onChanged }: MediaCardPro
         </div>
 
         <div className="space-y-2.5 p-3">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-start justify-between gap-2">
             <Badge className={`${statusColors[media.status]} text-[10px] uppercase tracking-wide`}>{statusLabels[media.status]}</Badge>
-            <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
-              {media.type === 'movie' ? 'Film' : 'Series'}
-            </Badge>
+            <div className="ml-auto flex max-w-full flex-wrap justify-end gap-1">
+              {isBookmarked && <Badge variant="secondary" className="text-[10px]">Saved</Badge>}
+              <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                {media.type === 'movie' ? 'Film' : 'Series'}
+              </Badge>
+            </div>
           </div>
 
           <div>
@@ -159,15 +186,19 @@ export default function MediaCard({ media, categories, onChanged }: MediaCardPro
             </div>
           )}
 
+          {(bookmarkError || selectionError) && (
+            <p className="text-[11px] text-red-300">{bookmarkError ?? selectionError}</p>
+          )}
+
           <div className="flex items-center justify-between border-t border-border/50 pt-2">
             <button
               type="button"
-              className="text-muted-foreground transition-colors hover:text-indigo-400"
-              onClick={(event) => {
-                event.stopPropagation();
-              }}
+              className={`transition-colors ${isBookmarked ? 'text-indigo-400' : 'text-muted-foreground hover:text-indigo-400'}`}
+              onClick={handleToggleBookmark}
+              disabled={isBookmarking}
+              aria-label={isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
             >
-              <Bookmark className="h-4 w-4" />
+              <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
             </button>
             <button
               type="button"

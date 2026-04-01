@@ -27,6 +27,10 @@ const mediaItemSchema = new Schema(
       type: Boolean,
       default: null,
     },
+    isBookmarked: {
+      type: Boolean,
+      default: false,
+    },
     ageCertification: {
       type: String,
       default: null,
@@ -102,4 +106,5 @@ mediaItemSchema.path('currentEpisode').validate((value: number | null) => value 
 
 export const MediaItemModel = model('MediaItem', mediaItemSchema);
 export const MediaObjectId = Types.ObjectId;
+
 

@@ -31,6 +31,7 @@ export interface MediaItem {
   status: MediaStatus;
   rating: number | null;
   liked: boolean | null;
+  isBookmarked: boolean;
   ageCertification: string | null;
   isAdult: boolean;
   keywords: string[];
@@ -66,6 +67,7 @@ export interface MediaPayload {
   status: MediaStatus;
   rating?: number | null;
   liked?: boolean | null;
+  isBookmarked?: boolean;
   ageCertification?: string | null;
   isAdult?: boolean;
   keywords?: string[];
@@ -113,3 +115,4 @@ export interface ApiListMeta {
 export interface ApiListResponse<T> extends ApiResponse<T[]> {
   meta?: ApiListMeta;
 }
+

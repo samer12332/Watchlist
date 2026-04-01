@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Calendar, Edit2, Star, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Bookmark, Calendar, Edit2, Star, Trash2 } from 'lucide-react';
 
 import AddMediaModal from '@/components/add-media-modal';
 import QuickStatusSelect from '@/components/quick-status-select';
@@ -35,6 +35,46 @@ const statusLabels = {
   reviewed: 'Reviewed',
 } as const;
 
+const normalizeCertification = (value: string | null) => value?.trim().toUpperCase() ?? null;
+
+const inferAudienceGuidance = (media: MediaItem, highlightedKeywords: string[]) => {
+  const certification = normalizeCertification(media.ageCertification);
+
+  if (media.isAdult) {
+    return '18+ recommended';
+  }
+
+  if (certification) {
+    if (['NC-17', 'TV-MA', 'R18+', '18', '18A'].includes(certification)) {
+      return '18+ recommended';
+    }
+
+    if (['R', 'MA15+', '16', '17', 'TV-14'].includes(certification)) {
+      return '16+ recommended';
+    }
+
+    if (['PG-13', '12', '12A', '15', 'TV-PG'].includes(certification)) {
+      return '13+ recommended';
+    }
+
+    if (['PG', 'G', 'U', 'TV-G', 'TV-Y7'].includes(certification)) {
+      return 'General audience';
+    }
+  }
+
+  const strongKeywords = highlightedKeywords.filter((keyword) => /nudity|sex|sexual|gore/i.test(keyword));
+  if (strongKeywords.length > 0) {
+    return '16+ recommended';
+  }
+
+  const moderateKeywords = highlightedKeywords.filter((keyword) => /violence|drug|language/i.test(keyword));
+  if (moderateKeywords.length > 0) {
+    return '13+ recommended';
+  }
+
+  return null;
+};
+
 export default function MediaDetailsModal({
   media,
   categories,
@@ -46,13 +86,24 @@ export default function MediaDetailsModal({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
+  const [isBookmarking, setIsBookmarking] = useState(false);
   const [selectionError, setSelectionError] = useState<string | null>(null);
+  const [bookmarkError, setBookmarkError] = useState<string | null>(null);
+  const [isBookmarked, setIsBookmarked] = useState(media.isBookmarked);
 
   const currentSelectionCount = media.selectionCount ?? 0;
   const highlightedKeywords = useMemo(
     () => media.keywords.filter((keyword) => /nudity|sex|sexual|violence|gore|drug|language/i.test(keyword)).slice(0, 6),
     [media.keywords]
   );
+  const audienceGuidance = useMemo(
+    () => inferAudienceGuidance(media, highlightedKeywords),
+    [media, highlightedKeywords]
+  );
+
+  useEffect(() => {
+    setIsBookmarked(media.isBookmarked);
+  }, [media.isBookmarked]);
 
   const handleDelete = async () => {
     const confirmed = window.confirm(`Delete "${media.title}"?`);
@@ -90,156 +141,189 @@ export default function MediaDetailsModal({
     }
   };
 
+  const handleToggleBookmark = async () => {
+    setBookmarkError(null);
+    setIsBookmarking(true);
+
+    try {
+      const nextBookmarked = !isBookmarked;
+      setIsBookmarked(nextBookmarked);
+      await watchlistApi.updateMediaItem(media.id, { isBookmarked: nextBookmarked });
+    } catch (error) {
+      setIsBookmarked((previous) => !previous);
+      setBookmarkError(error instanceof Error ? error.message : 'Unable to update bookmark.');
+    } finally {
+      setIsBookmarking(false);
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-3xl border-border bg-card sm:px-6">
-          <DialogHeader className="border-b border-border pb-5">
-            <DialogTitle className="text-xl font-bold text-foreground sm:text-2xl">{media.title}</DialogTitle>
+        <DialogContent className="grid max-h-[88vh] max-w-3xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden border-border bg-card p-0 sm:px-0">
+          <DialogHeader className="border-b border-border px-4 py-4 sm:px-6 sm:py-5">
+            <div className="flex items-start justify-between gap-3 pr-8">
+              <DialogTitle className="text-xl font-bold text-foreground sm:text-2xl">{media.title}</DialogTitle>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={`gap-2 ${isBookmarked ? 'border-indigo-500/50 text-indigo-300' : ''}`}
+                onClick={handleToggleBookmark}
+                disabled={isBookmarking}
+              >
+                <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
+                {isBookmarked ? 'Saved' : 'Save'}
+              </Button>
+            </div>
           </DialogHeader>
 
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-[220px_minmax(0,1fr)]">
-              <div>
-                <img src={media.posterUrl ?? '/placeholder.jpg'} alt={media.title} className="w-full rounded-lg border border-border" />
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge className={statusColors[media.status]}>{statusLabels[media.status]}</Badge>
-                  <Badge variant="outline">{media.type === 'movie' ? 'Film' : 'Series'}</Badge>
-                  {media.status === 'reviewed' && <Badge variant="secondary" className="text-rose-200">Reviewed and not liked</Badge>}
+          <div className="overflow-y-auto px-4 py-5 sm:px-6">
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-[180px_minmax(0,1fr)] md:gap-6">
+                <div className="mx-auto w-full max-w-[220px] md:mx-0">
+                  <img src={media.posterUrl ?? '/placeholder.jpg'} alt={media.title} className="w-full rounded-lg border border-border" />
                 </div>
 
-                <div>
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Quick Status</p>
-                  <QuickStatusSelect media={media} onChanged={onChanged} />
-                </div>
-
-                {media.releaseYear && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-foreground">{media.releaseYear}</span>
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge className={statusColors[media.status]}>{statusLabels[media.status]}</Badge>
+                    <Badge variant="outline">{media.type === 'movie' ? 'Film' : 'Series'}</Badge>
+                    {media.status === 'reviewed' && <Badge variant="secondary" className="text-rose-200">Reviewed and not liked</Badge>}
+                    {isBookmarked && <Badge variant="secondary" className="text-indigo-200">Bookmarked</Badge>}
                   </div>
-                )}
 
-                {media.rating !== null && (
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1">
-                      {[...Array(5)].map((_, index) => (
-                        <Star
-                          key={index}
-                          className={`h-4 w-4 ${
-                            index < Math.round((media.rating ?? 0) / 2)
-                              ? 'fill-yellow-500 text-yellow-500'
-                              : 'text-muted-foreground'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <span className="font-semibold text-foreground">{media.rating}/10</span>
-                  </div>
-                )}
-
-                {(media.ageCertification || media.isAdult || highlightedKeywords.length > 0) && (
-                  <div className="space-y-3 rounded-xl border border-border bg-secondary/60 p-4">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Content Profile</p>
-                    <div className="flex flex-wrap gap-2">
-                      {media.ageCertification && <Badge variant="secondary">Rated {media.ageCertification}</Badge>}
-                      {media.isAdult && <Badge className="bg-rose-600 text-white hover:bg-rose-600">Adult Content</Badge>}
-                      {highlightedKeywords.map((keyword) => (
-                        <Badge key={keyword} variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-100">
-                          {keyword}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {media.status === 'planned' && (
-                  <div className="space-y-3 rounded-lg border border-border bg-secondary p-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Watch Selections</p>
-                      <Badge variant="secondary">{currentSelectionCount}/3</Badge>
-                    </div>
-                    <Button onClick={handleSelectToWatch} disabled={isSelecting} className="w-full bg-indigo-600 hover:bg-indigo-700">
-                      {isSelecting
-                        ? 'Selecting...'
-                        : currentSelectionCount > 0
-                          ? `Selected ${currentSelectionCount} time${currentSelectionCount === 1 ? '' : 's'}`
-                          : 'Select to watch'}
-                    </Button>
-                    <p className="text-xs text-muted-foreground">The third selection automatically moves this item to reviewed.</p>
-                    {selectionError && <p className="text-xs text-red-300">{selectionError}</p>}
-                  </div>
-                )}
-
-                {media.categories.length > 0 && (
                   <div>
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Categories</p>
-                    <div className="flex flex-wrap gap-2">
-                      {media.categories.map((category) => (
-                        <Badge key={category.id} variant="secondary">
-                          {category.name}
-                        </Badge>
-                      ))}
-                    </div>
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Quick Status</p>
+                    <QuickStatusSelect media={media} onChanged={onChanged} />
                   </div>
-                )}
 
-                {media.type === 'series' && (
-                  <div className="rounded-lg bg-secondary p-4">
-                    <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Series Progress</p>
-                    <div className="space-y-2">
-                      {media.totalSeasons !== null && (
-                        <div className="flex justify-between">
-                          <span className="text-sm text-foreground">Total Seasons:</span>
-                          <span className="font-semibold text-foreground">{media.totalSeasons}</span>
-                        </div>
-                      )}
-                      {media.totalEpisodes !== null && (
-                        <div className="flex justify-between">
-                          <span className="text-sm text-foreground">Total Episodes:</span>
-                          <span className="font-semibold text-foreground">{media.totalEpisodes}</span>
-                        </div>
-                      )}
-                      {media.currentSeason !== null && (
-                        <div className="flex justify-between">
-                          <span className="text-sm text-foreground">Current Progress:</span>
-                          <span className="font-semibold text-foreground">S{media.currentSeason}:E{media.currentEpisode ?? 1}</span>
-                        </div>
-                      )}
+                  {media.releaseYear && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-foreground">{media.releaseYear}</span>
                     </div>
-                  </div>
-                )}
+                  )}
+
+                  {media.rating !== null && (
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        {[...Array(5)].map((_, index) => (
+                          <Star
+                            key={index}
+                            className={`h-4 w-4 ${
+                              index < Math.round((media.rating ?? 0) / 2)
+                                ? 'fill-yellow-500 text-yellow-500'
+                                : 'text-muted-foreground'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="font-semibold text-foreground">{media.rating}/10</span>
+                    </div>
+                  )}
+
+                  {(media.ageCertification || media.isAdult || highlightedKeywords.length > 0 || audienceGuidance) && (
+                    <div className="space-y-3 rounded-xl border border-border bg-secondary/60 p-4">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Content Profile</p>
+                      <div className="flex flex-wrap gap-2">
+                        {audienceGuidance && <Badge className="bg-indigo-600 text-white hover:bg-indigo-600">{audienceGuidance}</Badge>}
+                        {media.ageCertification && <Badge variant="secondary">Rated {media.ageCertification}</Badge>}
+                        {media.isAdult && <Badge className="bg-rose-600 text-white hover:bg-rose-600">Adult Content</Badge>}
+                        {highlightedKeywords.map((keyword) => (
+                          <Badge key={keyword} variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-100">
+                            {keyword}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {media.status === 'planned' && (
+                    <div className="space-y-3 rounded-lg border border-border bg-secondary p-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Watch Selections</p>
+                        <Badge variant="secondary">{currentSelectionCount}/3</Badge>
+                      </div>
+                      <Button onClick={handleSelectToWatch} disabled={isSelecting} className="w-full bg-indigo-600 hover:bg-indigo-700">
+                        {isSelecting
+                          ? 'Selecting...'
+                          : currentSelectionCount > 0
+                            ? `Selected ${currentSelectionCount} time${currentSelectionCount === 1 ? '' : 's'}`
+                            : 'Select to watch'}
+                      </Button>
+                      <p className="text-xs text-muted-foreground">The third selection automatically moves this item to reviewed.</p>
+                      {selectionError && <p className="text-xs text-red-300">{selectionError}</p>}
+                    </div>
+                  )}
+
+                  {media.categories.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Categories</p>
+                      <div className="flex flex-wrap gap-2">
+                        {media.categories.map((category) => (
+                          <Badge key={category.id} variant="secondary">
+                            {category.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {media.type === 'series' && (
+                    <div className="rounded-lg bg-secondary p-4">
+                      <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Series Progress</p>
+                      <div className="space-y-2">
+                        {media.totalSeasons !== null && (
+                          <div className="flex justify-between gap-4">
+                            <span className="text-sm text-foreground">Total Seasons:</span>
+                            <span className="font-semibold text-foreground">{media.totalSeasons}</span>
+                          </div>
+                        )}
+                        {media.totalEpisodes !== null && (
+                          <div className="flex justify-between gap-4">
+                            <span className="text-sm text-foreground">Total Episodes:</span>
+                            <span className="font-semibold text-foreground">{media.totalEpisodes}</span>
+                          </div>
+                        )}
+                        {media.currentSeason !== null && (
+                          <div className="flex justify-between gap-4">
+                            <span className="text-sm text-foreground">Current Progress:</span>
+                            <span className="font-semibold text-foreground">S{media.currentSeason}:E{media.currentEpisode ?? 1}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {media.overview && (
-              <div className="rounded-xl border border-border bg-secondary/70 p-4">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Overview</p>
-                <p className="text-sm leading-relaxed text-foreground/90">{media.overview}</p>
+              {media.overview && (
+                <div className="rounded-xl border border-border bg-secondary/70 p-4">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Overview</p>
+                  <p className="text-sm leading-relaxed text-foreground/90">{media.overview}</p>
+                </div>
+              )}
+
+              {media.notes && (
+                <div className="rounded-lg bg-secondary p-4">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Notes</p>
+                  <p className="text-sm leading-relaxed text-foreground">{media.notes}</p>
+                </div>
+              )}
+
+              {(deleteError || bookmarkError) && <p className="text-sm text-red-300">{deleteError ?? bookmarkError}</p>}
+
+              <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row">
+                <Button variant="outline" className="gap-2" onClick={() => setShowEditModal(true)}>
+                  <Edit2 className="h-4 w-4" />
+                  Edit
+                </Button>
+                <Button variant="outline" className="gap-2 text-red-400 hover:bg-red-500/10" onClick={handleDelete} disabled={isDeleting}>
+                  <Trash2 className="h-4 w-4" />
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </Button>
               </div>
-            )}
-
-            {media.notes && (
-              <div className="rounded-lg bg-secondary p-4">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Notes</p>
-                <p className="text-sm leading-relaxed text-foreground">{media.notes}</p>
-              </div>
-            )}
-
-            {deleteError && <p className="text-sm text-red-300">{deleteError}</p>}
-
-            <div className="flex gap-3 border-t border-border pt-4">
-              <Button variant="outline" className="gap-2" onClick={() => setShowEditModal(true)}>
-                <Edit2 className="h-4 w-4" />
-                Edit
-              </Button>
-              <Button variant="outline" className="gap-2 text-red-400 hover:bg-red-500/10" onClick={handleDelete} disabled={isDeleting}>
-                <Trash2 className="h-4 w-4" />
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </Button>
             </div>
           </div>
         </DialogContent>
