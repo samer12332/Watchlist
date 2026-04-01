@@ -11,7 +11,33 @@ import type {
   RandomMediaQuery,
 } from '@/shared/watchlist';
 
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
+const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1']);
+
+const getApiBaseUrl = () => {
+  const configuredBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL ?? '').trim().replace(/\/$/, '');
+
+  if (!configuredBaseUrl) {
+    return '';
+  }
+
+  if (typeof window === 'undefined') {
+    return configuredBaseUrl;
+  }
+
+  try {
+    const configuredUrl = new URL(configuredBaseUrl, window.location.origin);
+    const configuredIsLocal = LOCAL_HOSTNAMES.has(configuredUrl.hostname);
+    const currentIsLocal = LOCAL_HOSTNAMES.has(window.location.hostname);
+
+    if (configuredIsLocal && !currentIsLocal) {
+      return '';
+    }
+
+    return configuredUrl.origin === window.location.origin ? '' : configuredBaseUrl;
+  } catch {
+    return configuredBaseUrl;
+  }
+};
 
 export class ApiError extends Error {
   details?: unknown;
@@ -41,7 +67,7 @@ const createQueryString = (query?: Record<string, string | undefined>) => {
 };
 
 const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
