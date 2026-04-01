@@ -23,7 +23,7 @@ interface MediaLibraryProps {
   onDataChanged: () => void;
 }
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 8;
 const statusColors = {
   planned: 'bg-slate-600',
   watching: 'bg-blue-600',
