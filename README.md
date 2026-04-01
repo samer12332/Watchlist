@@ -29,10 +29,10 @@ Personal media tracker for movies and series with a React frontend, Express API,
 Copy `.env.example` to `.env` and adjust values if needed.
 
 ```bash
-MONGODB_URI=mongodb://127.0.0.1:27017/watchlist
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/watchlist
 PORT=4000
 CLIENT_ORIGIN=http://localhost:3000
-NEXT_PUBLIC_API_BASE_URL=http://localhost:4000
+NEXT_PUBLIC_API_BASE_URL=
 OMDB_API_KEY=your_omdb_api_key
 TMDB_READ_ACCESS_TOKEN=your_tmdb_read_access_token
 ```
@@ -45,7 +45,7 @@ TMDB_READ_ACCESS_TOKEN=your_tmdb_read_access_token
 npm install
 ```
 
-2. Make sure MongoDB is running locally.
+2. Make sure your MongoDB Atlas cluster is reachable and the network access rules allow your current IP.
 
 3. Seed the database.
 
@@ -66,7 +66,7 @@ npm run dev
 ```
 
 - Frontend: `http://localhost:3000`
-- API: `http://localhost:4000`
+- API: served from the same deployment at `/api` by default
 
 ## Scripts
 
@@ -124,6 +124,6 @@ If `status` is omitted on random media, the API tries planned items first and fa
 
 - Category deletion removes category references from media items without deleting the media.
 - Ratings allow decimal values from 1 to 10 and are only valid for completed items.
-- When `OMDB_API_KEY` and `TMDB_READ_ACCESS_TOKEN` are configured, new and updated items are enriched automatically with OMDb ratings and TMDb metadata when fields are missing.
+- When `OMDB_API_KEY` and `TMDB_READ_ACCESS_TOKEN` are configured, new and updated items are enriched automatically with OMDb ratings and TMDb metadata when fields are missing. On Vercel, the frontend uses same-origin `/api` routes by default.
 - Use `npm run sync:metadata` to backfill existing library items from OMDb and TMDb.
 - Movies and series share one collection and are distinguished by `type`.
