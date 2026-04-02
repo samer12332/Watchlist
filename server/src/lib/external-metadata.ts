@@ -342,31 +342,37 @@ export const fetchExternalMetadata = async (input: MetadataLookupInput): Promise
     return null;
   }
 
-  try {
-    const [tmdb, rating] = await Promise.all([
-      fetchTmdbMetadata(input),
-      fetchOmdbRating(input),
-    ]);
+  const [tmdbResult, ratingResult] = await Promise.allSettled([
+    fetchTmdbMetadata(input),
+    fetchOmdbRating(input),
+  ]);
 
-    if (!tmdb && rating === null) {
-      return null;
-    }
+  const tmdb = tmdbResult.status === 'fulfilled' ? tmdbResult.value : null;
+  const rating = ratingResult.status === 'fulfilled' ? ratingResult.value : null;
 
-    return {
-      rating,
-      releaseYear: tmdb?.releaseYear ?? input.releaseYear ?? null,
-      posterUrl: tmdb?.posterUrl ?? null,
-      totalSeasons: tmdb?.totalSeasons ?? null,
-      totalEpisodes: tmdb?.totalEpisodes ?? null,
-      ageCertification: tmdb?.ageCertification ?? null,
-      isAdult: tmdb?.isAdult ?? false,
-      keywords: tmdb?.keywords ?? [],
-      overview: tmdb?.overview ?? null,
-    };
-  } catch (error) {
-    console.error(`Metadata lookup failed for ${input.type} "${input.title}":`, error);
+  if (tmdbResult.status === 'rejected') {
+    console.error(`TMDb metadata lookup failed for ${input.type} "${input.title}":`, tmdbResult.reason);
+  }
+
+  if (ratingResult.status === 'rejected') {
+    console.error(`OMDb rating lookup failed for ${input.type} "${input.title}":`, ratingResult.reason);
+  }
+
+  if (!tmdb && rating === null) {
     return null;
   }
+
+  return {
+    rating,
+    releaseYear: tmdb?.releaseYear ?? input.releaseYear ?? null,
+    posterUrl: tmdb?.posterUrl ?? null,
+    totalSeasons: tmdb?.totalSeasons ?? null,
+    totalEpisodes: tmdb?.totalEpisodes ?? null,
+    ageCertification: tmdb?.ageCertification ?? null,
+    isAdult: tmdb?.isAdult ?? false,
+    keywords: tmdb?.keywords ?? [],
+    overview: tmdb?.overview ?? null,
+  };
 };
 
 export const mergeExternalMetadata = <T extends {
