@@ -12,6 +12,8 @@ const DEFAULT_PAGE_SIZE = 24;
 const MIN_ALLOWED_RATING = 6.5;
 
 const sanitizeSyncedRating = (rating: number | null) => (rating !== null && rating < MIN_ALLOWED_RATING ? null : rating);
+const sanitizeExistingRatingForValidation = (rating: unknown) =>
+  typeof rating === 'number' && rating < MIN_ALLOWED_RATING ? null : (rating as number | null);
 
 
 type MediaStatus = 'planned' | 'watching' | 'suspended' | 'completed' | 'reviewed';
@@ -420,7 +422,7 @@ router.put(
       title: pickDefined(partialPayload.title, mediaItem.title),
       type: pickDefined(partialPayload.type, mediaItem.type),
       status: nextStatus,
-      rating: pickDefined(partialPayload.rating, mediaItem.rating),
+      rating: pickDefined(partialPayload.rating, sanitizeExistingRatingForValidation(mediaItem.rating)),
       liked: pickDefined(
         partialPayload.liked,
         normalizeLikedForStatus(getNormalizedStatus(mediaItem.status, mediaItem.liked), mediaItem.liked)
