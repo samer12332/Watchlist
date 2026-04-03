@@ -420,6 +420,19 @@ router.put(
     }
 
     const partialPayload = mediaUpdatePayloadSchema.parse(request.body);
+
+    if (Object.keys(partialPayload).length === 1 && partialPayload.isBookmarked !== undefined) {
+      mediaItem.isBookmarked = partialPayload.isBookmarked;
+      await mediaItem.save();
+      await mediaItem.populate('categories');
+
+      response.json({
+        data: normalizeMediaDocument(mediaItem.toJSON()),
+        message: 'Media item updated.',
+      });
+      return;
+    }
+
     const nextStatus = pickDefined(partialPayload.status, getNormalizedStatus(mediaItem.status, mediaItem.liked));
     const nextSelectionCount = nextStatus === 'planned' ? pickDefined(partialPayload.selectionCount, mediaItem.selectionCount ?? 0) : 0;
 
