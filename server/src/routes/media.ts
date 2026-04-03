@@ -147,15 +147,20 @@ const buildStatusFilters = (status?: MediaStatus) => {
   return { status };
 };
 
-const buildMediaDocumentPayload = async <T extends MediaPayloadLike>(payload: T, options?: { forceExternal?: boolean }) => {
+const buildMediaDocumentPayload = async <T extends MediaPayloadLike>(
+  payload: T,
+  options?: { forceExternal?: boolean; includeExternal?: boolean }
+) => {
   const normalizedStatus = getNormalizedStatus(payload.status, payload.liked);
   const normalizedLiked = normalizeLikedForStatus(normalizedStatus, payload.liked);
 
-  const external = await fetchExternalMetadata({
-    title: payload.title,
-    type: payload.type,
-    releaseYear: payload.releaseYear,
-  });
+  const external = options?.includeExternal === false
+    ? null
+    : await fetchExternalMetadata({
+        title: payload.title,
+        type: payload.type,
+        releaseYear: payload.releaseYear,
+      });
 
   const enriched = mergeExternalMetadata(
     {
@@ -444,10 +449,16 @@ router.put(
 
     const categoryIds = await ensureCategoriesExist(mergedPayload.categoryIds);
     await ensureUniqueMediaTitleForType(mergedPayload.title, mergedPayload.type, String(request.params.id));
+    const shouldRefreshExternalMetadata =
+      partialPayload.title !== undefined ||
+      partialPayload.type !== undefined ||
+      partialPayload.releaseYear !== undefined;
 
     const mediaDocumentPayload = await buildMediaDocumentPayload({
       ...mergedPayload,
       categoryIds,
+    }, {
+      includeExternal: shouldRefreshExternalMetadata,
     });
 
     mediaItem.title = mediaDocumentPayload.title;
